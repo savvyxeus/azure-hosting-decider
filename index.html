@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Azure Compute Decision Helper</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+      color: #0f172a;
+      background: radial-gradient(circle at top, #e0f2fe 0, #f8fafc 55%, #e5e7eb 100%);
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .app {
+      max-width: 720px;
+      width: 100%;
+      background: white;
+      border-radius: 1.5rem;
+      box-shadow: 0 25px 80px rgba(15, 23, 42, 0.15);
+      padding: 1.75rem 1.75rem 1.5rem;
+      box-sizing: border-box;
+    }
+    .app-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .app-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: #0f172a;
+    }
+    .app-subtitle {
+      font-size: 0.875rem;
+      color: #6b7280;
+      margin-top: 0.25rem;
+    }
+    .pill {
+      border-radius: 999px;
+      border: 1px solid #e5e7eb;
+      padding: 0.2rem 0.75rem;
+      font-size: 0.75rem;
+      color: #4b5563;
+      background: #f9fafb;
+      white-space: nowrap;
+    }
+    .question-card, .result-card {
+      margin-top: 0.75rem;
+      border-radius: 1rem;
+      border: 1px solid #e5e7eb;
+      padding: 1.25rem 1.1rem;
+      background: linear-gradient(135deg, #f9fafb, #eff6ff);
+    }
+    .question-text {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #111827;
+      margin-bottom: 1rem;
+    }
+    .question-help {
+      font-size: 0.82rem;
+      color: #6b7280;
+      margin-bottom: 0.75rem;
+    }
+    .options {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+    .option-btn {
+      appearance: none;
+      border: 1px solid #e5e7eb;
+      border-radius: 999px;
+      padding: 0.6rem 0.9rem;
+      text-align: left;
+      font-size: 0.92rem;
+      background: #ffffff;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      transition: transform 0.08s ease, box-shadow 0.08s ease,
+        border-color 0.08s ease, background 0.08s ease;
+    }
+    .option-btn span.label {
+      font-weight: 500;
+      color: #111827;
+    }
+    .option-btn span.meta {
+      font-size: 0.78rem;
+      color: #6b7280;
+    }
+    .option-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+      border-color: #93c5fd;
+      background: #eff6ff;
+    }
+    .option-btn:active {
+      transform: translateY(0);
+      box-shadow: none;
+    }
+    .toolbar {
+      margin-top: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .toolbar-left {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .btn {
+      appearance: none;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      padding: 0.45rem 0.95rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      background: #0f172a;
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: background 0.1s ease, transform 0.08s ease, box-shadow 0.08s ease;
+    }
+    .btn-secondary {
+      background: #f3f4f6;
+      color: #111827;
+      border-color: #e5e7eb;
+    }
+    .btn:disabled {
+      opacity: 0.45;
+      cursor: default;
+      transform: none;
+      box-shadow: none;
+    }
+    .btn:not(:disabled):hover {
+      background: #111827;
+      transform: translateY(-0.5px);
+      box-shadow: 0 6px 14px rgba(15, 23, 42, 0.2);
+    }
+    .btn-secondary:not(:disabled):hover {
+      background: #e5e7eb;
+      box-shadow: none;
+    }
+    .progress-text {
+      font-size: 0.78rem;
+      color: #6b7280;
+    }
+
+    /* Result layout with logos */
+    .service-header {
+      display: flex;
+      align-items: center;
+      gap: 0.9rem;
+      margin-bottom: 0.6rem;
+    }
+    .service-logo {
+      width: 46px;
+      height: 46px;
+      border-radius: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: white;
+      box-shadow: 0 12px 25px rgba(37, 99, 235, 0.35);
+      background: linear-gradient(145deg, #2563eb, #0ea5e9);
+      flex-shrink: 0;
+    }
+    .service-logo--avs   { background: linear-gradient(145deg, #1d4ed8, #06b6d4); }
+    .service-logo--vm    { background: linear-gradient(145deg, #2563eb, #0ea5e9); }
+    .service-logo--batch { background: linear-gradient(145deg, #7c3aed, #6366f1); }
+    .service-logo--func  { background: linear-gradient(145deg, #f97316, #facc15); }
+    .service-logo--app   { background: linear-gradient(145deg, #0ea5e9, #22c55e); }
+    .service-logo--aci   { background: linear-gradient(145deg, #0891b2, #38bdf8); }
+    .service-logo--sf    { background: linear-gradient(145deg, #ec4899, #a855f7); }
+    .service-logo--aro   { background: linear-gradient(145deg, #ef4444, #f97316); }
+    .service-logo--aks   { background: linear-gradient(145deg, #2563eb, #3b82f6); }
+    .service-logo--aca   { background: linear-gradient(145deg, #0f766e, #22c55e); }
+    .service-logo--orch  { background: linear-gradient(145deg, #4b5563, #111827); }
+
+    .result-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #0f172a;
+    }
+    .result-category {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #6b7280;
+      margin-top: 0.15rem;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.72rem;
+      padding: 0.15rem 0.55rem;
+      border-radius: 999px;
+      background: #e0f2fe;
+      color: #1d4ed8;
+      margin-bottom: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .result-body {
+      font-size: 0.9rem;
+      color: #4b5563;
+      margin-bottom: 0.75rem;
+    }
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.25rem;
+    }
+    .chip {
+      font-size: 0.7rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      border: 1px solid #dbeafe;
+      background: #eff6ff;
+      color: #1d4ed8;
+      white-space: nowrap;
+    }
+    .history-line {
+      font-size: 0.78rem;
+      color: #9ca3af;
+      margin-top: 0.5rem;
+    }
+    .history-highlight {
+      color: #4b5563;
+      font-weight: 500;
+    }
+    @media (max-width: 600px) {
+      .app {
+        padding: 1.25rem 1.1rem 1rem;
+        border-radius: 1.1rem;
+      }
+      .app-title {
+        font-size: 1.1rem;
+      }
+      .option-btn {
+        font-size: 0.9rem;
+      }
+      .question-text {
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <div>
+        <div class="app-title">Azure Compute Decision Helper</div>
+        <div class="app-subtitle">
+          Answer the questions from the Azure compute decision tree to get a recommendation.
+        </div>
+      </div>
+      <div class="pill">Based on Azure diagram</div>
+    </header>
+
+    <main id="content"></main>
+
+    <footer class="toolbar">
+      <div class="toolbar-left">
+        <button id="backBtn" class="btn btn-secondary" disabled>
+          ◀ Back
+        </button>
+        <button id="restartBtn" class="btn btn-secondary">
+          ⟳ Restart
+        </button>
+      </div>
+      <div class="progress-text" id="progressText"></div>
+    </footer>
+  </div>
+
+  <script>
+    // ============================
+    // Decision tree (matches image)
+    // ============================
+    const decisionTree = {
+      // Start
+      "root": {
+        type: "question",
+        question: "Do you want to build new or migrate?",
+        help: "This is the first split in the Azure compute decision tree.",
+        options: [
+          { label: "Build new", meta: "", next: "q_full_control" },
+          { label: "Migrate",   meta: "", next: "q_migrate_type" }
+        ]
+      },
+
+      // Build-new path
+      "q_full_control": {
+        type: "question",
+        question: "Do you require full control?",
+        help: "For example: custom OS configuration, kernel drivers, special agents.",
+        options: [
+          { label: "Yes", meta: "", next: "r_vm" },
+          { label: "No",  meta: "", next: "q_hpc" } // joins container branch
+        ]
+      },
+
+      // Migrate path
+      "q_migrate_type": {
+        type: "question",
+        question: "Is this a lift and shift, or already optimized for the cloud?",
+        help: "Lift and shift keeps the architecture. Already optimized usually means cloud-ready.",
+        options: [
+          { label: "Lift and shift",             meta: "", next: "q_cots" },
+          { label: "Already optimized for the cloud", meta: "", next: "q_can_containerize" }
+        ]
+      },
+
+      "q_cots": {
+        type: "question",
+        question: "Commercial off-the-shelf app?",
+        help: "ISV or packaged application you normally just configure, not deeply customize.",
+        options: [
+          { label: "Yes", meta: "", next: "r_app_service" },
+          { label: "No",  meta: "", next: "q_vmware_workload" }
+        ]
+      },
+
+      "q_vmware_workload": {
+        type: "question",
+        question: "VMware workload?",
+        help: "Running today on vSphere/ESXi and managed via vCenter?",
+        options: [
+          { label: "Yes", meta: "", next: "r_avs" },
+          { label: "No",  meta: "", next: "r_vm" }
+        ]
+      },
+
+      "q_can_containerize": {
+        type: "question",
+        question: "Can it be containerized?",
+        help: "If yes, you can use the container-based options on the right side of the diagram.",
+        options: [
+          { label: "Yes", meta: "", next: "q_hpc" },
+          { label: "No",  meta: "", next: "q_vmware_workload" }
+        ]
+      },
+
+      // Shared container branch
+      "q_hpc": {
+        type: "question",
+        question: "HPC workload?",
+        help: "High-performance computing or large, parallel numerical jobs.",
+        options: [
+          { label: "Yes", meta: "", next: "r_batch" },
+          { label: "No",  meta: "", next: "q_event_driven" }
+        ]
+      },
+
+      "q_event_driven": {
+        type: "question",
+        question: "Event-driven workload that has short-lived processes?",
+        help: "Triggered by events, messages, timers; each execution is short-lived.",
+        options: [
+          { label: "Yes", meta: "", next: "r_functions" },
+          { label: "No",  meta: "", next: "q_managed_web" }
+        ]
+      },
+
+      "q_managed_web": {
+        type: "question",
+        question: "Managed web hosting platform and features?",
+        help: "If yes, you want PaaS features like deployment slots, built-in scaling, auth, etc.",
+        options: [
+          { label: "Yes", meta: "", next: "r_app_service" },
+          { label: "No",  meta: "", next: "q_full_orchestration" }
+        ]
+      },
+
+      "q_full_orchestration": {
+        type: "question",
+        question: "Need full-fledged orchestration?",
+        help: "Multiple services, rollouts, scaling policies, health probes, etc.",
+        options: [
+          { label: "Yes", meta: "", next: "q_need_managed_service" },
+          { label: "No",  meta: "", next: "r_aci" }
+        ]
+      },
+
+      "q_need_managed_service": {
+        type: "question",
+        question: "Need a managed service?",
+        help: "Do you want Microsoft/Red Hat to operate the platform for you?",
+        options: [
+          { label: "Yes", meta: "", next: "q_familiar_sf" },
+          { label: "No",  meta: "", next: "r_own_orch" }
+        ]
+      },
+
+      "q_familiar_sf": {
+        type: "question",
+        question: "Familiar with Azure Service Fabric or older versions of the .NET Framework?",
+        help: "If yes, you can use Azure Service Fabric as in the diagram.",
+        options: [
+          { label: "Yes", meta: "", next: "r_sf" },
+          { label: "No",  meta: "", next: "q_using_rh_os" }
+        ]
+      },
+
+      "q_using_rh_os": {
+        type: "question",
+        question: "Using Red Hat OpenShift?",
+        help: "Standardizing on OpenShift for your container platform?",
+        options: [
+          { label: "Yes", meta: "", next: "r_aro" },
+          { label: "No",  meta: "", next: "q_need_all_k8s" }
+        ]
+      },
+
+      "q_need_all_k8s": {
+        type: "question",
+        question: "Need access to all Kubernetes capabilities?",
+        help: "Direct Kubernetes APIs, CRDs, operators, full ecosystem access.",
+        options: [
+          { label: "Yes", meta: "", next: "r_aks" },
+          { label: "No",  meta: "", next: "r_aca" }
+        ]
+      },
+
+      // Results with logo codes
+      "r_vm": {
+        type: "result",
+        code: "VM",
+        logoClass: "service-logo--vm",
+        title: "Virtual Machines",
+        category: "IaaS",
+        summary: "Use Azure Virtual Machines.",
+        details: "This matches the 'Virtual Machines' box in the diagram. You manage the OS, runtime, and agents yourself and get maximum flexibility for non-container or legacy workloads.",
+        tags: ["Full control", "Lift and shift", "Legacy apps"]
+      },
+
+      "r_avs": {
+        type: "result",
+        code: "AVS",
+        logoClass: "service-logo--avs",
+        title: "Azure VMware Solution",
+        category: "Lift and shift",
+        summary: "Use Azure VMware Solution.",
+        details: "This corresponds to the 'Azure VMware Solution' box. It keeps your VMware stack (vCenter, ESXi, NSX-T) while hosting it on Azure infrastructure.",
+        tags: ["VMware", "Minimum change", "Hybrid"]
+      },
+
+      "r_batch": {
+        type: "result",
+        code: "BATCH",
+        logoClass: "service-logo--batch",
+        title: "Azure Batch",
+        category: "HPC / batch",
+        summary: "Use Azure Batch.",
+        details: "This is the 'Azure Batch' box. It’s aimed at HPC and large batch workloads that need job scheduling and automatic scaling of compute nodes.",
+        tags: ["HPC", "Parallel jobs", "Scheduling"]
+      },
+
+      "r_functions": {
+        type: "result",
+        code: "FUNC",
+        logoClass: "service-logo--func",
+        title: "Azure Functions",
+        category: "Serverless",
+        summary: "Use Azure Functions.",
+        details: "This matches the 'Azure Functions' box. Ideal for event-driven, short-lived processes triggered by timers, messages, or HTTP events.",
+        tags: ["Event-driven", "Short-lived", "Pay-per-execution"]
+      },
+
+      "r_app_service": {
+        type: "result",
+        code: "APP",
+        logoClass: "service-logo--app",
+        title: "Azure App Service",
+        category: "PaaS web",
+        summary: "Use Azure App Service.",
+        details: "This is the 'Azure App Service' box used in both the migrate and container branches. It gives you a managed web hosting platform with scaling and deployment features.",
+        tags: ["Web apps", "APIs", "Managed hosting"]
+      },
+
+      "r_aci": {
+        type: "result",
+        code: "ACI",
+        logoClass: "service-logo--aci",
+        title: "Azure Container Instances",
+        category: "Containers",
+        summary: "Use Azure Container Instances.",
+        details: "This corresponds to the 'Azure Container Instances' box for cases where you don’t need full orchestration, just fast container runs.",
+        tags: ["Containers", "No orchestration", "On-demand"]
+      },
+
+      "r_sf": {
+        type: "result",
+        code: "SF",
+        logoClass: "service-logo--sf",
+        title: "Azure Service Fabric",
+        category: "Managed orchestration",
+        summary: "Use Azure Service Fabric.",
+        details: "This matches the 'Azure Service Fabric' box when you’re familiar with Service Fabric or older .NET architectures that rely on it.",
+        tags: ["Service Fabric", "Microservices", "Stateful services"]
+      },
+
+      "r_aro": {
+        type: "result",
+        code: "ARO",
+        logoClass: "service-logo--aro",
+        title: "Azure Red Hat OpenShift",
+        category: "Managed OpenShift",
+        summary: "Use Azure Red Hat OpenShift.",
+        details: "This is the 'Azure Red Hat OpenShift' box for customers standardizing on Red Hat OpenShift as their Kubernetes platform.",
+        tags: ["OpenShift", "Red Hat", "Enterprise containers"]
+      },
+
+      "r_aks": {
+        type: "result",
+        code: "AKS",
+        logoClass: "service-logo--aks",
+        title: "Azure Kubernetes Service",
+        category: "Managed Kubernetes",
+        summary: "Use Azure Kubernetes Service.",
+        details: "This corresponds to the 'Azure Kubernetes Service' box when you need all Kubernetes features and ecosystem.",
+        tags: ["Kubernetes", "Microservices", "Full capabilities"]
+      },
+
+      "r_aca": {
+        type: "result",
+        code: "ACA",
+        logoClass: "service-logo--aca",
+        title: "Azure Container Apps",
+        category: "Serverless containers",
+        summary: "Use Azure Container Apps.",
+        details: "This is the 'Azure Container Apps' box when you don’t need full Kubernetes access but want a managed, serverless container platform.",
+        tags: ["Serverless containers", "Scale to zero", "Reduced ops"]
+      },
+
+      "r_own_orch": {
+        type: "result",
+        code: "ORCH",
+        logoClass: "service-logo--orch",
+        title: "Your own orchestration implementation on Azure Virtual Machines",
+        category: "Self-managed orchestration",
+        summary: "Run your own orchestration implementation on Azure Virtual Machines.",
+        details: "This represents the big box at the bottom containing 'VMware Tanzu on Azure Virtual Machines', 'Kubernetes on Azure Virtual Machines', and 'OpenShift on Azure Virtual Machines'. You operate the platform yourself on top of VMs.",
+        tags: ["Self-managed", "Tanzu / Kubernetes / OpenShift", "Max control"]
+      }
+    };
+
+    // ============================
+    // Navigation state + rendering
+    // ============================
+    let currentNodeId = "root";
+    const historyStack = []; // { nodeId, answerLabel }
+
+    const contentEl = document.getElementById("content");
+    const backBtn = document.getElementById("backBtn");
+    const restartBtn = document.getElementById("restartBtn");
+    const progressText = document.getElementById("progressText");
+
+    function render() {
+      const node = decisionTree[currentNodeId];
+      if (!node) {
+        contentEl.innerHTML = "<p>Unknown node in decision tree.</p>";
+        return;
+      }
+
+      backBtn.disabled = historyStack.length === 0;
+
+      if (node.type === "question") {
+        renderQuestion(node);
+      } else {
+        renderResult(node);
+      }
+
+      const steps = historyStack.length + 1;
+      progressText.textContent = `Step ${steps}`;
+    }
+
+    function renderQuestion(node) {
+      const optionsHtml = node.options
+        .map(
+          opt => `
+          <button class="option-btn" data-next="${opt.next}" data-label="${opt.label}">
+            <span class="label">${opt.label}</span>
+            <span class="meta">${opt.meta || ""}</span>
+          </button>`
+        )
+        .join("");
+
+      contentEl.innerHTML = `
+        <section class="question-card">
+          <div class="question-text">${node.question}</div>
+          ${node.help ? `<div class="question-help">${node.help}</div>` : ""}
+          <div class="options">
+            ${optionsHtml}
+          </div>
+          ${
+            historyStack.length
+              ? `<div class="history-line">
+                   Path so far:
+                   <span class="history-highlight">
+                     ${historyStack.map(h => h.answerLabel).join(" → ")}
+                   </span>
+                 </div>`
+              : ""
+          }
+        </section>
+      `;
+
+      contentEl.querySelectorAll(".option-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const next = btn.getAttribute("data-next");
+          const label = btn.getAttribute("data-label");
+          historyStack.push({ nodeId: currentNodeId, answerLabel: label });
+          currentNodeId = next;
+          render();
+        });
+      });
+    }
+
+    function renderResult(node) {
+      const code = node.code || "";
+      const logoClass = node.logoClass || "";
+      contentEl.innerHTML = `
+        <section class="result-card">
+          <div class="badge">Recommendation</div>
+          <div class="service-header">
+            <div class="service-logo ${logoClass}">${code}</div>
+            <div>
+              <div class="result-title">${node.title}</div>
+              <div class="result-category">${node.category || ""}</div>
+            </div>
+          </div>
+          <div class="result-body"><strong>${node.summary}</strong></div>
+          <div class="result-body">${node.details}</div>
+          ${
+            node.tags?.length
+              ? `<div class="chip-row">
+                   ${node.tags.map(t => `<span class="chip">${t}</span>`).join("")}
+                 </div>`
+              : ""
+          }
+          ${
+            historyStack.length
+              ? `<div class="history-line">
+                   Decision path:
+                   <span class="history-highlight">
+                     ${historyStack.map(h => h.answerLabel).join(" → ")}
+                   </span>
+                 </div>`
+              : ""
+          }
+        </section>
+      `;
+    }
+
+    backBtn.addEventListener("click", () => {
+      if (!historyStack.length) return;
+      const last = historyStack.pop();
+      currentNodeId = last.nodeId;
+      render();
+    });
+
+    restartBtn.addEventListener("click", () => {
+      historyStack.length = 0;
+      currentNodeId = "root";
+      render();
+    });
+
+    render();
+  </script>
+</body>
+</html>
